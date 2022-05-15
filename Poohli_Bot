@@ -1,0 +1,117 @@
+import discord
+from discord.ext import commands
+import youtube_dl
+import random
+from poohli_list import phrases, laughs
+from discord import Color
+
+Token = "OTcxNDk0NDgxMjkzNjI3NDIy.GAmD9T.XVb4dx9Cnlo134Z0BQFFoekAtX-3tAdbIc0od0"
+queue = []
+
+youtube_dl.utils.bug_reports_message = lambda: ''
+
+ytdl_options = {
+    'format': 'bestaudio/best',
+    'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
+    'restrictfilenames': True,
+    'noplaylist': True,
+    'nocheckcertificate': True,
+    'ignoreerrors': False,
+    'logtostderr': False,
+    'quiet': True,
+    'no_warnings': True,
+    'default_search': 'auto',
+    'source_address': '0.0.0.0'
+}
+
+ffmpeg_options = {
+    'options': '-vn'
+}
+
+ytdl = youtube_dl.YoutubeDL(ytdl_options)
+
+
+class YTDLSource(discord.PCMVolumeTransformer):     #I have no idea what this class section below does yet. I should learn.
+    def __init__(self, source, *, data, volume=0.5):
+        super().__init__(source, volume)
+
+        self.data = data
+
+        self.title = data.get('title')
+        self.url = data.get('url')
+
+    @classmethod
+    async def from_url(cls, url, *, loop=None, stream=False):
+        loop = loop or asyncio.get_event_loop()
+        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
+
+        if 'entries' in data:
+            data = data['entries'][0]
+
+        filename = data['url'] if stream else ytdl.prepare_filename(data)
+        return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
+
+
+client = commands.Bot(command_prefix='?')
+client.remove_command("help")
+
+
+@client.event
+async def on_ready():
+    print("{0.user} is ready to poohli! Type '?help' to get a list of commands.".format(client))
+
+
+@client.group(invoke_without_command=True)
+async def help(ctx, *args):
+    colorstr = "```\nPoohli - I'll make you cry a river!\nSing - I'll sing furiously and make your ears bleed!\nLaugh - I'll laugh like a troll!\nGun - I'll shut my mouth so you can have some peace and quite!```"
+    embed = discord.Embed(Color=Color.green(), title="Below are my skills!", description=colorstr)
+    await ctx.send(embed=embed)
+
+
+@client.command(name='poohli')
+async def poohli(ctx):
+    await ctx.send(random.choice(phrases))
+    return
+
+
+@client.command(name='laugh')
+async def laugh(ctx):
+    username = str(ctx.author.name).split('#')[0]
+    if username == 'Porridge':
+        await ctx.send("Npuahahahahaha!")
+        return
+    elif username == '(๑•́ωก̀๑)':
+        await ctx.send("Aihiahiahiahiahia!")
+        return
+    else:
+        await ctx.send(random.choices(laughs))
+        return
+
+
+@client.command(name='sing')
+async def sing(ctx, url):
+    if not ctx.message.author.voice:
+        await ctx.send("You're not connected to a voice channel.")
+        return
+    else:
+        channel = ctx.message.author.voice.channel
+    await channel.connect()
+
+    server = ctx.message.guild
+    voice_channel = server.voice_client
+
+    async with ctx.typing():
+        player = await YTDLSource.from_url(url, loop=client.loop)
+        voice_channel.play(player, after=lambda e: print('Player error: %s' % e) if e else None)
+
+    await ctx.send('**Now singing:** {}'.format(player.title))
+
+
+@client.command(name='gun')
+async def gun(ctx):
+    voice_client = ctx.message.guild.voice_client
+    await voice_client.disconnect()
+
+#Still need to implement a 'pause' command, but not sure how.
+
+client.run(Token)
