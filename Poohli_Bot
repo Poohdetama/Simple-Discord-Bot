@@ -5,7 +5,7 @@ import random
 from poohli_list import phrases, laughs
 from discord import Color
 
-Token = "OTcxNDk0NDgxMjkzNjI3NDIy.GAmD9T.XVb4dx9Cnlo134Z0BQFFoekAtX-3tAdbIc0od0"
+Token = ""
 queue = []
 
 youtube_dl.utils.bug_reports_message = lambda: ''
